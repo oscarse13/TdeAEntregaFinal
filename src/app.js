@@ -1,33 +1,99 @@
 const express = require('express');
 const app = express();
+const server =  require('http').createServer(app);
+const io = require('socket.io')(server);
 const path = require('path');
 const hbs = require('hbs');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 //const bcrypt = require('bcrypt'); Error en la instalación
-const session = require('express-session')
+const session = require('express-session');
+const sgMail = require('@sendgrid/mail');
+const multer  = require('multer');
+const { Conexion } = require('././conexion');
+const conexion = new Conexion();
 
-const { listarCursos, guardarCurso, obtenerCursosDisponibles, inscribir, obtenerCursosYAspirantes, cerrarCurso, retirarAspiranteCurso, listarUsuarios, guardarUsuario, validarUsuario } = require('./helpers');
+const { listarCursos, guardarCurso, obtenerCursosDisponibles, inscribir, obtenerCursosYAspirantes, cerrarCurso, retirarAspiranteCurso, listarUsuarios, guardarUsuario, validarUsuario, actualizarAvatar, obtenerInscripcionesPorCurso, obtenerCursos } = require('./helpers');
 require('./helpers')
 
+
+process.env.URLDB = 'mongodb+srv://tdea:tdea@cluster0-3ctbg.azure.mongodb.net/tdea?retryWrites=true';
+process.env.SENDGRID_API_KEY  = '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';
 
 const publicDirectory = path.join(__dirname, '../public');
 const partialsDirectory = path.join(__dirname, '../partials');
 
+app.use('/img', express.static(path.join(__dirname, '../public/images')));
+app.use('/js', express.static(path.join(__dirname, '../public/js')));
+
 app.use(express.static(publicDirectory));
 hbs.registerPartials(partialsDirectory);
-app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
 
 
 app.set('view engine', 'hbs');
 app.set('views', path.join(__dirname, '..', 'views'));
 
-mongoose.connect('mongodb+srv://tdea:tdea@cluster0-3ctbg.azure.mongodb.net/tdea?retryWrites=true', (err) =>{
+mongoose.connect(process.env.URLDB, { useNewUrlParser: true }, (err) =>{
     if (err)
         return console.log("Error conectando a DB: " + err);
 
     return console.log("Conectado a DB correctamente...");
 });
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// var storage = multer.diskStorage({
+//     destination: function (req, file, cb) {
+//       cb(null, '/public/uploads')
+//     },
+//     filename: function (req, file, cb) {
+//       cb(null, 'avatar' + req.body.documento + path.extname(file.originalname)
+//     }
+//   })
+  
+var upload = multer({ });
+
+io.on('connection', client => {
+    client.on("conectar", (msg) =>{
+        console.log(client.id);
+        let usuario = {};
+        usuario.id = client.id;
+        usuario.usuario = msg.usuario;
+
+		let conexionActual = conexion.getConexion(usuario);
+        if(!conexionActual){
+            conexion.conectar(usuario);
+        }
+    });
+    
+    client.on('disconnect',()=>{
+        let usuario = {};
+        usuario.id = client.id;
+
+		let conexionActual = conexion.getConexion(usuario);
+        if(!conexionActual){
+            conexion.desconectar(usuario);
+        }
+     });
+            
+    client.on("cerrarCurso", (msg) =>{
+        obtenerCursos(parseInt(msg.cursoId),  (cursoExistente) => {
+            obtenerInscripcionesPorCurso(parseInt(msg.cursoId), (inscripcionesCurso) => {
+                inscripcionesCurso.forEach(inscripcion => {
+                    let usuario = { usuario : inscripcion.idUsuario.toString() };
+                    let conexionUsuario = conexion.getConexion(usuario);
+                    console.log(conexionUsuario);
+                    if(conexionUsuario){
+                        let texto = `El curso ${cursoExistente[0].nombre} en que estaba matriculado, ha sido cerrado`;
+                        client.broadcast.to(conexionUsuario.id).emit("mensajeAlerta", texto);
+                    }
+                });
+            });
+        });
+	})
+  });
 
 app.use(session({
     secret: 'keyboard cat',
@@ -37,10 +103,11 @@ app.use(session({
 
   app.use((req, res, next) => {
         if(req.session.usuario){
-
             res.locals.coordinador = req.session.usuario.rol === 'coordinador';
             res.locals.aspirante = req.session.usuario.rol === 'aspirante';
             res.locals.usuariosesion = req.session.usuario;
+            res.locals.avatar = req.session.avatarimage !== '';
+            res.locals.avatarimage = req.session.avatarimage;
         }
         else{
             res.locals.aspirante = false;
@@ -176,14 +243,13 @@ app.get('/seeaspirant', (req, res) => {
     });
 });
 
-app.get('/closecourse', (req, res) => {
+app.get('/closecourse', (req, res) => {    
     if(req.query.id){
         cerrarCurso(parseInt(req.query.id), () => {
             obtenerCursosYAspirantes((cursos) => {
                 res.render('seeaspirants', {
                     cursos: cursos,
-                    displaymessage: 'none',
-                   
+                    displaymessage: 'none'                   
                 });
             });
         });
@@ -230,7 +296,7 @@ app.get('/adduser', (req, res) => {
     });
 });
 
-app.post('/adduser', (req, res) => {
+app.post('/adduser', upload.single('archivo'), (req, res) => {
    
     let aspirante = {};
     aspirante.documento = parseInt(req.body.documento);
@@ -239,6 +305,16 @@ app.post('/adduser', (req, res) => {
     aspirante.telefono = req.body.telefono;
     aspirante.rol = req.body.rol;
     aspirante.password = req.body.documento;
+    aspirante.avatar = req.file.buffer;
+
+    const msg = {
+            to: req.body.correo,
+            from: 'oscarse@gmail.com',
+            subject: 'Bienvenido a TdeA Cursos',
+            text: 'La inscripción del usuario ' + aspirante.nombre + ' fue exitosa ' +
+                    ' -- usuario: ' + aspirante.documento +
+                    ' -- contraseña: ' + aspirante.password
+       };
 
     guardarUsuario(aspirante, 
                 (usuario) => {
@@ -254,11 +330,10 @@ app.post('/adduser', (req, res) => {
                         });
                     }
                     else{
-
+                        sgMail.send(msg);
                         let usuarioRespuesta = {};
                         usuarioRespuesta.validacion = usuario.validacion;
                         listarUsuarios((response) =>{
-                                console.log(response);
                                 res.render('addusers', {
                                 usuario: usuarioRespuesta,
                                 displaymessage: 'block',
@@ -290,15 +365,18 @@ app.post('/login', (req, res) => {
                         });
                     }
                     else{
+                        req.session.avatarimage =  usuario.avatar ? usuario.avatar.toString('base64') : '';
                         req.session.usuario = usuario;
-                        
+
                         let usuarioRespuesta = {};
                         usuarioRespuesta.validacion = usuario.validacion;
                         res.render('index', {
                             displaymessage: 'none',
                             usuariosesion: req.session.usuario,
                             coordinador: req.session.usuario.rol === 'coordinador',
-                            aspirante: req.session.usuario.rol === 'aspirante'
+                            aspirante: req.session.usuario.rol === 'aspirante',
+                            avatar: req.session.avatarimage !== '',
+                            avatarimage : req.session.avatarimage
                         });
 
                     }
@@ -311,17 +389,53 @@ app.get('/logout', (req, res) => {
         displaymessage: 'none',
         usuariosesion: req.session.usuario,
         coordinador: false,
-        aspirante: false
+        aspirante: false,
+        avatar: false
     });
+});
+
+app.get('/handleavatar', (req, res) => {
+    res.render('avatar', {
+        displaymessage: 'none'
+    });
+});
+
+app.post('/handleavatar', upload.single('archivo'), (req, res) => {
+
+    let usuario = {};
+    usuario = req.session.usuario;
+    usuario.avatar = req.file.buffer;
+
+    actualizarAvatar(usuario, 
+        (usuario) => {
+            if(usuario.estado === 'invalido'){               
+                res.render('avatar', {
+                    displaymessage: 'block',
+                    alertclass: 'danger'
+                });
+            }
+            else{
+                req.session.avatarimage =  usuario.avatar ? usuario.avatar.toString('base64') : '';
+                req.session.usuario = usuario;
+                let usuarioRespuesta = {};
+                usuarioRespuesta.validacion = usuario.validacion;
+                res.render('avatar', {
+                    usuario: usuarioRespuesta,
+                    displaymessage: 'block',
+                    alertclass: 'success' ,
+                    avatar: req.session.avatarimage !== '',
+                    avatarimage : req.session.avatarimage                     
+                });
+            }
+        });
 });
 
 app.get('/*', (req, res) => {
     res.render('index', {
-        displaymessage: 'none',
-       
+        displaymessage: 'none'
     });
 });
 
-app.listen(3000, () => {
-    console.log('Escuchando en el puerto 3000');
+server.listen(process.env.PORT || 3000, () => {
+    console.log('Escuchando en el puerto ' + process.env.PORT || 3000);
 });

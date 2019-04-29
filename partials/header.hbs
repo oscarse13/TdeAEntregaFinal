@@ -1,4 +1,4 @@
-<html >
+<html>
 <head>
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
@@ -9,7 +9,7 @@
 <body>
     <div class="panel-group main-container">
          <div class="row">
-        <div class="col-md-12">
+        <div class="col-md-9">
              <a class="btn btn-secondary btn-lg active" href="/index" role="button">Inicio</a>
             
             {{#if coordinador }}
@@ -27,5 +27,24 @@
                  <a class="btn btn-primary btn-lg active" href="/logout" role="button">Salir</a>
             {{/if}}
         </div>
+         <div class="col-md-3">
+              {{#if usuariosesion }}
+                {{#if avatar}}
+                 <a href="/handleavatar">
+                <img src="data:img/png;base64,{{avatarimage}}" class="rounded-circle" title="Click para cambiar avatar">
+                </a>
+                {{else}}
+                <a href="/handleavatar">
+                    <img src="img/noavatar.png" class="rounded-circle" title="Click para crear avatar">
+                    </a>
+                {{/if}}
+             {{/if}}
+         </div>
+        </div>
+        <div>
+            <div class="alert alert-danger alert-dismissible fade out">
+                <a href="#" class="close" aria-label="close">&times;</a>
+                <strong>Danger!</strong> <label id="lblPushDanger">
+            </div>
         </div>
     </div>

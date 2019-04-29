@@ -246,7 +246,8 @@ let guardarUsuario = (usuario, callback) => {
                 correo: usuario.correo,
                 telefono: usuario.telefono,
                 rol: usuario.rol,
-                password: usuario.password
+                password: usuario.password,
+                avatar: usuario.avatar
             });
             usuario.validacion = 'Usuario guardado satisfactoriamente!';
             usuarioNuevo.save((err, result) => {
@@ -276,6 +277,13 @@ let validarUsuario = (usuario, callback) => {
     });   
 };
 
+let actualizarAvatar = (usuario, callback) => {     
+    Usuario.findOneAndUpdate({ documento : usuario.documento }, {avatar : usuario.avatar}, (err, result) => {
+        if (err) throw (err);   
+        usuario.validacion = 'Avatar actualizado satisfactoriamente!';
+        callback(usuario);        
+    });   
+};
 
 module.exports = {
     listarCursos,
@@ -287,5 +295,8 @@ module.exports = {
     retirarAspiranteCurso,
     listarUsuarios,
     guardarUsuario,
-    validarUsuario
+    validarUsuario,
+    actualizarAvatar,
+    obtenerInscripcionesPorCurso,
+    obtenerCursos
 };

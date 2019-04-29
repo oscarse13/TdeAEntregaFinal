@@ -9,7 +9,8 @@ const usuarioSchema = new Schema({
   password: { type: String, require: true },
   correo: { type: String, require: true },
   telefono: { type: Number, require: true },
-  rol: { type: String, require: true }
+  rol: { type: String, require: true },
+  avatar: { type: Buffer }
 });
 
 const Usuario = mongoose.model('Usuario', usuarioSchema);

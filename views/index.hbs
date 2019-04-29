@@ -8,9 +8,9 @@
     </div>
     
      {{#if usuariosesion}}
-        <h1><span class="badge badge-secondary">Bienvenido  {{{ usuariosesion.nombre }}}</span></h1>     
+        <h1><span class="badge badge-secondary">Bienvenid@  {{{ usuariosesion.nombre }}}</span></h1>     
     {{else}}
-         <form class="form-inline" action="/login" method="POST">            
+         <form class="form-inline" id="login" >            
             <label for="usuario">Usuario:</label>
             <input type="number" class="form-control" id="usuario" name="usuario">
             <label for="pwd">Password:</label>

@@ -1,0 +1,29 @@
+{{>header}}
+<div class="panel-group main-container">
+    <h1><span class="badge badge-secondary">Administrar Avatar</span></h1>
+    <div class="row">
+        <div class="col-md-3">
+           <form action="/handleavatar" method="POST" enctype="multipart/form-data">
+            <div class="alert alert-{{{alertclass}}}" role="alert" style="display:{{{displaymessage}}};">
+                <label >{{{ usuario.validacion }}}</label>
+            </div>
+            <div class="form-group">
+                <label for="id">Avatar actual</label>
+                {{#if usuariosesion }}
+                    {{#if avatar}}
+                    <img src="data:img/png;base64,{{avatarimage}}" class="rounded-circle">
+                    {{else}}
+                        <img src="img/noavatar.png" class="rounded-circle">
+                    {{/if}}
+                {{/if}}
+            </div>           
+            <div class="form-group">
+                <label for="archivo">Seleccione nuevo Avatar</label>
+                <input type="file" class="form-control" id="archivo" name="archivo" placeholder="Avatar" required accept="image/png, image/jpeg" >
+            </div>
+            <button type="submit" class="btn btn-primary">Actualizar</button>
+            </form>
+        </div>
+    </div>
+</div>
+{{>footer}}
