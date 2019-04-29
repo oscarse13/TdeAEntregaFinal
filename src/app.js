@@ -17,8 +17,7 @@ const { listarCursos, guardarCurso, obtenerCursosDisponibles, inscribir, obtener
 require('./helpers')
 
 
-process.env.URLDB = 'mongodb+srv://tdea:tdea@cluster0-3ctbg.azure.mongodb.net/tdea?retryWrites=true';
-process.env.SENDGRID_API_KEY  = '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';
+
 
 const publicDirectory = path.join(__dirname, '../public');
 const partialsDirectory = path.join(__dirname, '../partials');
